@@ -4,10 +4,11 @@
 import numpy as np
 from scipy.integrate import quad
 
+# under T+delta forward measure, LIBOR is martingale
 class Model:
     def __init__(self, r0, S0, K, tau, BondP, mu, k, theta, sigma, rho, lambda_):
         ##### phi, i
-        self.r0 = r0
+        self.r0 = 0
         self.S0 = S0
         self.K = K
         self.tau = tau
@@ -72,6 +73,6 @@ class Model:
     
 # =============================================================================
 # # (self, r0, S0, K, tau, BondP, mu, k, theta, sigma, rho, lambda_)
-# m1 = Model(0.02, 100, 100, 1, 0.98, 0.1, 0.2, 0.1, 0.2, 0.3, .2)
+# m1 = Model(0, 100, 100, 1, 0.98, 0.1, 0.2, 0.1, 0.2, 0.3, .2)
 # m1.CallPrice()
 # =============================================================================
