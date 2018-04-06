@@ -3,24 +3,16 @@
 
 # #### Realized_Volatility
 
-# In[3]:
+# In[1]:
 
 
 import quandl
 import pandas as pd
 token = "m3kA-wQ4xZPzt5Khy7xA"
-n = 5 # Settle prices of rst 8 (most liquid) rolling Eurodollar futures you got from Quandl
-nms = ['CHRIS/CME_ED' + str(i) for i in range(1, n + 1)]
-dfs = [quandl.get(nm, authtoken = token, start_date="2017-01-01") for nm in nms] #, end_date="2018-03-07"
-dfs = [data.Settle for data in dfs]
-df = pd.concat(dfs, axis = 1)
-df.columns = ['Settle_ED' + str(i) for i in range(1, n + 1)]
-df = 100 - df # convert into rate
-in_sample = df[df.index.year == 2017]
-in_sample.head()
 
 
-# In[4]:
+
+# In[2]:
 
 
 # Convert to constant maturity
@@ -71,14 +63,9 @@ def CMT_rate(df, y, m):
     
     return df_test
 
-df_CMT = CMT_rate(in_sample, y, m)
-CMT = df_CMT[[ 'CM_ED' + str(i) for i in range(1, n)]] #[[str(i * 3) + 'm_days' for i in range(5, 21)] + [ 'CM_ED' + str(i) for i in range(5, 21)]]
-CMT.head()
-#df_CMT.to_csv(r'C:\Users\passi\OneDrive\Desktop\df_CMT.csv')
-df_CMT.head(60)
 
 
-# In[5]:
+# In[3]:
 
 
 # 1w, 2w, 1m, 3m
@@ -87,23 +74,16 @@ def Realized_Vol(df, rolling_windodw):
     vol = df.rolling(window = rolling_windodw).std() * np.sqrt(252) # annualize it
     return vol
 
-# use the diff, see the Heston, we are interested in the lognormal vol, not the normal vol.
-CMT_ret = CMT.diff()
-
-real_vol_1w = Realized_Vol(CMT_ret, 5)
-real_vol_2w = Realized_Vol(CMT_ret, 10)
-real_vol_1m = Realized_Vol(CMT_ret, 21)
-real_vol_3m = Realized_Vol(CMT_ret, 63)
-
-
 
 # In[ ]:
+def CallFunc(func, para1, para2):
+    a = func(para1, para2[0])
+    b = func(para1, para2[1])
+    c = func(para1, para2[2])
+    d = func(para1, para2[3])
+    return a, b, c, d
 
-
-
-
-
-# In[6]:
+# In[4]:
 
 
 import matplotlib.pyplot as plt
@@ -127,26 +107,12 @@ def Plot(df, numrow, numcol, numseries, rolling_length = ''):
         plt.yticks(fontsize = 15)
 
 
-fig = plt.figure(1)
-plt.figure(figsize = (30, 40))
-
-col = ['1w', '2w', '1m', '3m']
-
-Plot(real_vol_1w, 8, 4, 1, col[0])    
-Plot(real_vol_2w, 8, 4, 2, col[1]) 
-Plot(real_vol_1m, 8, 4, 3, col[2]) 
-Plot(real_vol_3m, 8, 4, 4, col[3]) 
-plt.show()
-
-real_vol_1w.mean()
-
 
 # ### using PCA1 as vol proxy/factor
 
-# In[7]:
+# In[5]:
 
-
-real_vol = [real_vol_1w, real_vol_2w, real_vol_1m, real_vol_3m]
+col = ['1w', '2w', '1m', '3m']
 
 def CM_realized_vol(data, column):
     df = pd.concat([x[column] for x in real_vol], join = 'inner', axis = 1)
@@ -154,19 +120,11 @@ def CM_realized_vol(data, column):
     df.dropna(inplace = True, axis = 0)
     return df
 
-real_vol_CM_ED1 = CM_realized_vol(real_vol, 'CM_ED1')
-real_vol_CM_ED2 = CM_realized_vol(real_vol, 'CM_ED2')
-real_vol_CM_ED3 = CM_realized_vol(real_vol, 'CM_ED3')
-real_vol_CM_ED4 = CM_realized_vol(real_vol, 'CM_ED4')
 
-
-# In[8]:
+# In[6]:
 
 
 from sklearn.decomposition import PCA
-from sklearn.preprocessing import scale
-
-
 
 def Vol_PC(data, column):
     #data = scale(data)
@@ -177,7 +135,8 @@ def Vol_PC(data, column):
     normalized_data = (data - data.mean(axis = 0))
     pca = PCA(n_components = 1)
     pca.fit(normalized_data)
-    X1 = (pca.components_ * normalized_data).sum(axis = 1) # + data.mean(axis = 1)
+    print(pca.components_)
+    X1 = (pca.components_ * normalized_data).sum(axis = 1) + data.mean(axis = 1).mean()
     X1.name = column
     return X1
 
@@ -197,18 +156,7 @@ def Vol_PC(data, column):
 #     df.name = column
 #     return df
 
-CM_ED1_PC = Vol_PC(real_vol_CM_ED1, 'CM_ED1')
-CM_ED2_PC = Vol_PC(real_vol_CM_ED2, 'CM_ED2')
-CM_ED3_PC = Vol_PC(real_vol_CM_ED3, 'CM_ED3')
-CM_ED4_PC = Vol_PC(real_vol_CM_ED4, 'CM_ED4')
-
-CM_ED_PC = pd.concat([CM_ED1_PC, CM_ED2_PC, CM_ED3_PC, CM_ED4_PC], axis = 1)
-print(CM_ED_PC.head())
-
-real_vol_CM_ED1.mean().mean(), real_vol_CM_ED2.mean().mean(), real_vol_CM_ED3.mean().mean(), real_vol_CM_ED4.mean().mean(), CM_ED_PC.mean()
-
-
-# In[9]:
+# In[7]:
 
 
 # from sklearn.decomposition import PCA
@@ -245,45 +193,142 @@ real_vol_CM_ED1.mean().mean(), real_vol_CM_ED2.mean().mean(), real_vol_CM_ED3.me
 # real_vol_CM_ED1.mean().mean(), real_vol_CM_ED2.mean().mean(), real_vol_CM_ED3.mean().mean(), real_vol_CM_ED4.mean().mean(), CM_ED_PC.mean()
 
 
-# In[10]:
+# In[8]:
 
-
-fig = plt.figure(1)
-plt.figure(figsize = (20, 20))
-
-colnames = ['CM_ED1', 'CM_ED2', 'CM_ED3', 'CM_ED4']
-Plot(CM_ED_PC, 4, 1, 1)    
-
-plt.show()
 
 
 # ### term volatility (also known as integrated volatility) as sigma_term(T) = sqrt[1/T*integral{s=0,T}(sigma(s)^2*ds]
 # $$ \sigma^{term}(T) = \sqrt{\frac{1}{T} \int\limits_{0}^{T} \sigma(s)^2 ds } $$
 
-# In[11]:
+# In[9]:
 
 
-def Sigma_Term(term, sigma_series):    
-    df = sigma_series.dropna()
-    days = int(term * 252)
+from scipy import interpolate
 
-    if days > df.shape[0]:
-        print('Length error: term should be less than the series length')
-    else:
-        sigma_term = np.full((days, ), .0)
-        for i in range(1, days + 1):
-            sigma_term[i - 1] = np.sqrt(sum((df**2)[:i]) * 1/252 / (i/252))
-            #print(sigma_term[i-1])
-        return sigma_term
+def cubic_spline(x, x_points, y_points):
+
+    tck = interpolate.splrep(x_points, y_points)
+    return interpolate.splev(x, tck)
+
+#print (cubic_spline(np.array(range(1,10))))
+
+# In[29]:
 
 
-# In[12]:
+def Sigma_Term(term, df):   # CM_ED_PC
+    n_seq = np.array(range(int(term*365)))/365
+    sigma_term = np.full((len(n_seq), ), 0.0)
+
+#     temp = CM_ED_PC.iloc[-1, :].values
+#     temp = np.insert(temp, 0, temp[0])
+    sigma_s = cubic_spline(n_seq, np.array([91, 182, 273, 365])/365, CM_ED_PC.iloc[-1, :])
+    print(df.iloc[0, :])
+    ###########
+#     from scipy.interpolate import interp1d
+
+#     f = interp1d(np.array([90, 180, 270, 360])/252, df.iloc[0, :], kind='cubic')
+
+#     plt.plot(np.array([90, 180, 270, 360])/252, df.iloc[0, :], 'o', n_seq[90:], f(n_seq[90:]), '.-', markersize = 3)
+#     plt.legend(['data', 'cubic'], loc='best')
+#     plt.show()
+    ##############
+    for i in range(len(n_seq)):
+        sigma_term[i] = np.sqrt(sum(sigma_s[:i] ** 2) / 365 / n_seq[i])
+
+    print("Term vol for Sep.18,", "sigma_term(T): T is ranging from 0 to 0.5589")
+    plt.plot(np.array([91, 182, 273, 365])/365, CM_ED_PC.iloc[-1, :], 'o', )
+    plt.plot(n_seq, sigma_s)
+    plt.plot(n_seq, sigma_term)
+    plt.legend(['data', 'sigma_s', 'sigma_term'])
+    plt.title('Term Volatility')
+    plt.xticks( rotation = 30 )
+    plt.show()
+
+    return sigma_term
 
 
-term_vol = Sigma_Term(0.8, real_vol_1w.iloc[:,0])
+#########################################################################
+    
+print('Downloading ED from Quandl')
+
+n = 5 # Settle prices of rst 8 (most liquid) rolling Eurodollar futures you got from Quandl
+nms = ['CHRIS/CME_ED' + str(i) for i in range(1, n + 1)]
+dfs = [quandl.get(nm, authtoken = token, start_date="2017-01-01") for nm in nms] #, end_date="2018-03-07"
+dfs = [data.Settle for data in dfs]
+df = pd.concat(dfs, axis = 1)
+df.columns = ['Settle_ED' + str(i) for i in range(1, n + 1)]
+df = 100 - df # convert into rate
+in_sample = df[df.index.year == 2017]
+#in_sample.head()
+
+print('Construct constant maturity rate')
+
+df_CMT = CMT_rate(in_sample, y, m)
+CMT = df_CMT[[ 'CM_ED' + str(i) for i in range(1, n)]] #[[str(i * 3) + 'm_days' for i in range(5, 21)] + [ 'CM_ED' + str(i) for i in range(5, 21)]]
+#CMT.head()
+#df_CMT.to_csv(r'C:\Users\passi\OneDrive\Desktop\df_CMT.csv')
+#df_CMT.head(60)
+
+# use the diff, see the Heston, we are interested in the lognormal vol, not the normal vol.
+CMT_ret = CMT.diff()
+
+real_vol_1w, real_vol_2w, real_vol_1m, real_vol_3m = CallFunc(Realized_Vol, CMT_ret, [5, 10, 21, 63])
+real_vol = [real_vol_1w, real_vol_2w, real_vol_1m, real_vol_3m]
+
+# =============================================================================
+# fig = plt.figure(1)
+# plt.figure(figsize = (30, 40))
+# 
+# col = ['1w', '2w', '1m', '3m']
+# 
+# Plot(real_vol_1w, 8, 4, 1, col[0])    
+# Plot(real_vol_2w, 8, 4, 2, col[1]) 
+# Plot(real_vol_1m, 8, 4, 3, col[2]) 
+# Plot(real_vol_3m, 8, 4, 4, col[3]) 
+# plt.show()
+# 
+# real_vol_1w.mean()
+# 
+# =============================================================================
+
+
+real_vol_CM_ED1, real_vol_CM_ED2, real_vol_CM_ED3, real_vol_CM_ED4 = CallFunc(CM_realized_vol, real_vol, ['CM_ED1', 'CM_ED2', 'CM_ED3', 'CM_ED4'])
+
+
+CM_ED1_PC = Vol_PC(real_vol_CM_ED1, 'CM_ED1')
+CM_ED2_PC = Vol_PC(real_vol_CM_ED2, 'CM_ED2')
+CM_ED3_PC = Vol_PC(real_vol_CM_ED3, 'CM_ED3')
+CM_ED4_PC = Vol_PC(real_vol_CM_ED4, 'CM_ED4')
+
+CM_ED_PC = pd.concat([CM_ED1_PC, CM_ED2_PC, CM_ED3_PC, CM_ED4_PC], axis = 1)
+#print(CM_ED_PC.head())
+
+#real_vol_CM_ED1.mean().mean(), real_vol_CM_ED2.mean().mean(), real_vol_CM_ED3.mean().mean(), real_vol_CM_ED4.mean().mean(), CM_ED_PC.mean()
+
+# =============================================================================
+# 
+# fig = plt.figure(1)
+# plt.figure(figsize = (20, 20))
+# 
+# colnames = ['CM_ED1', 'CM_ED2', 'CM_ED3', 'CM_ED4']
+# Plot(CM_ED_PC, 4, 1, 1)    
+# 
+# plt.show()
+# 
+# =============================================================================
+
+
+#term_vol = Sigma_Term(0.8, real_vol_1w.iloc[:,0])
 # np.sqrt( (real_vol_1w.iloc[:, 0] ** 2).mean()  * 251/252)
-
-plt.plot(np.linspace(1, int(0.8 * 252), num = int(0.8 * 252))/252, term_vol)
+print("Term vol for Sep.18,", "sigma_term(T): T is fixed for 0.5589")
+term_vol = Sigma_Term(0.5589, CM_ED_PC)
+plt.plot(term_vol)
 plt.title('Term Volatility')
+plt.xticks( rotation = 30 )
 plt.show()
+
+
+a = Sigma_Term(1, CM_ED_PC)
+
+
 
